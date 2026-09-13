@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#183b6b">
+<title>Congregação Vila</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{--b:#183b6b;--g:#8b6500;--p:#55306f;--gr:#245b3a;--bg:#f5f6f8;--bd:#d9dee7;--txt:#172033}
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,Arial;background:var(--bg);color:var(--txt)}
+button,input,select,textarea{font:inherit}button{cursor:pointer}.wrap{max-width:1200px;margin:auto;padding:12px}
+.card{background:#fff;border:1px solid var(--bd);border-radius:14px;padding:14px}.row{display:flex;gap:10px;align-items:center}.between{justify-content:space-between}.grid{display:grid;gap:12px}.g2{grid-template-columns:repeat(2,1fr)}.g3{grid-template-columns:repeat(3,1fr)}
+.btn{border:0;border-radius:9px;padding:10px 14px;background:var(--b);color:#fff;font-weight:700}.btn.sec{background:#fff;color:var(--txt);border:1px solid var(--bd)}.input{width:100%;padding:10px;border:1px solid var(--bd);border-radius:9px;background:#fff}.muted{color:#667085}.small{font-size:12px}.hidden{display:none!important}.mt{margin-top:12px}
+.logo{width:44px;height:44px;border-radius:11px;background:var(--b);color:#fff;display:grid;place-items:center;font-weight:900}
+.login{min-height:100vh;display:grid;place-items:center;padding:18px}.login .card{width:min(430px,100%)}
+header{position:sticky;top:0;z-index:10;background:#fffffff2;border-bottom:1px solid var(--bd)}header .wrap{display:flex;justify-content:space-between;align-items:center}
+.nav{display:flex;gap:4px;flex-wrap:wrap}.nav button{border:0;background:transparent;padding:8px;border-radius:8px}.nav button.active{background:#e9f0f8;color:var(--b);font-weight:800}
+.section{display:none}.section.active{display:block}.toolbar{display:flex;gap:8px;flex-wrap:wrap}.tablewrap{overflow:auto}
+table{border-collapse:collapse;width:100%;min-width:700px}th,td{border:1px solid var(--bd);padding:8px;text-align:left}th{background:#eef1f5}
+.day{background:#fff;border:1px solid var(--bd);border-radius:12px;overflow:hidden;margin-bottom:10px}.day h3{margin:0;padding:9px 12px;background:var(--b);color:#fff}
+.assign{display:grid;grid-template-columns:190px 1fr;border-top:1px solid var(--bd)}.assign>div{padding:8px;border-right:1px solid var(--bd)}
+.assist{overflow:auto}.assist table{min-width:950px}.assist th{background:#343941;color:#fff;text-align:center}.assist td{text-align:center}.assist .label{background:#dfe2e6;font-weight:800;text-align:left}.assist .na{background:#4b5058;color:#fff}.assist .edit{background:#eef0f3}.assist input{width:70px;border:0;background:transparent;text-align:center}
+.bottom{display:none}
+@media(max-width:800px){.nav{display:none}.g2,.g3{grid-template-columns:1fr}.bottom{display:grid;grid-template-columns:repeat(4,1fr);position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--bd);z-index:20}.bottom button{border:0;background:#fff;padding:9px 2px;font-size:11px}.main{padding-bottom:75px}.assign{grid-template-columns:140px 1fr}}
+</style>
+</head>
+<body>
+<div id="login" class="login"><div class="card">
+<div class="row"><div class="logo">CV</div><div><h2 style="margin:0">Congregação Vila</h2><div class="small muted">Vila Industrial · acesso seguro</div></div></div>
+<label class="small muted">E-mail</label><input id="email" class="input mt" type="email" autocomplete="email" placeholder="seu.email@exemplo.com">
+<button id="send" class="btn mt" style="width:100%">Receber código de acesso</button>
+<div id="otp" class="hidden mt"><label class="small muted">Código recebido por e-mail</label><input id="code" class="input mt" inputmode="numeric" autocomplete="one-time-code" maxlength="8"><button id="verify" class="btn mt" style="width:100%">Entrar</button></div>
+<div id="msg" class="small muted mt"></div></div></div>
+
+<div id="app" class="hidden">
+<header><div class="wrap"><div class="row"><div class="logo">CV</div><div><b>Congregação Vila</b><div id="who" class="small muted"></div></div></div><div id="nav" class="nav"></div><button id="logout" class="btn sec">Sair</button></div></header>
+<main class="wrap main">
+<section id="painel" class="section active"><h2>Painel</h2><div class="muted">Programação da Congregação Vila Industrial</div>
+<div class="grid g3 mt"><div class="card"><div class="small muted">Mês atual</div><h2 id="dashMes">—</h2></div><div class="card"><div class="small muted">Programações</div><h2 id="dashReun">0</h2></div><div class="card"><div class="small muted">Designações</div><h2 id="dashDesig">0</h2></div></div>
+<div class="card mt"><h3>Módulos</h3><div class="toolbar"><button class="btn" onclick="go('programacao')">Designações</button><button class="btn sec" onclick="go('assistencia')">Assistência</button><button class="btn sec" onclick="go('discursos')">Discursos públicos</button><button class="btn sec" onclick="go('grupos')">Grupos</button><button class="btn sec" onclick="go('limpeza')">Limpeza</button><button class="btn sec" onclick="go('historico')">Histórico</button></div></div></section>
+
+<section id="programacao" class="section"><div class="between row"><div><h2>Designações</h2><div class="muted">Quadro mensal para revisão</div></div><div class="toolbar"><input id="mesProg" class="input" type="month" style="width:170px"><button class="btn" onclick="carregarProgramacao()">Atualizar</button></div></div><div id="board" class="mt"></div></section>
+
+<section id="assistencia" class="section"><div class="between row"><div><h2>Assistência às reuniões</h2><div class="muted">Preenchimento pelo administrador</div></div><div class="toolbar"><input id="mesAssist" class="input" type="month" style="width:170px"><button class="btn" onclick="prepararAssistencia()">Preparar mês</button></div></div><div id="assistTable" class="card assist mt"></div></section>
+
+<section id="discursos" class="section"><div class="between row"><h2>Discursos públicos</h2><button id="addTalk" class="btn">Adicionar</button></div><div class="card tablewrap mt"><table><thead><tr><th>Seção</th><th>Dia</th><th>Semana</th><th>Discurso</th><th>Orador</th><th>Congregação</th><th></th></tr></thead><tbody id="talks"></tbody></table></div></section>
+
+<section id="grupos" class="section"><div class="between row"><h2>Grupos</h2><button id="addGroup" class="btn">Novo grupo</button></div><div id="groups" class="grid g2 mt"></div></section>
+
+<section id="limpeza" class="section"><h2>Limpeza</h2><div class="card tablewrap mt"><table><thead><tr><th>Semana</th><th>Grupo</th><th>Responsável</th><th>Observação</th></tr></thead><tbody id="clean"></tbody></table></div></section>
+
+<section id="historico" class="section"><h2>Histórico</h2><div class="muted">Resumo acumulado de participação.</div><div id="history" class="card tablewrap mt"></div></section>
+<section id="conta" class="section"><h2>Minha conta</h2><div id="account" class="card mt"></div></section>
+</main>
+<nav class="bottom"><button onclick="go('painel')">Início</button><button onclick="go('programacao')">Designações</button><button onclick="go('assistencia')">Assistência</button><button onclick="go('conta')">Conta</button></nav>
+</div>
+
+<div id="modal" class="hidden" style="position:fixed;inset:0;background:#0008;z-index:40;padding:15px;place-items:center"><div class="card" style="max-width:620px;width:100%"><div class="between row"><h3 id="mtitle">Editar</h3><button class="btn sec" onclick="closeModal()">Fechar</button></div><div id="mbody" class="mt"></div></div></div>
+
+<script>
+const URL='https://somxvqwpqhnxjxavhwvb.supabase.co',KEY='sb_publishable_c1qfUYeooWwsvcHF0_7Rfw_PwKk2PSp';
+const sb=supabase.createClient(URL,KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,flowType:'pkce'}});
+const S={user:null,perfil:null,pessoas:[],funcoes:[],programacoes:[],designacoes:[],assist:[],talks:[],groups:[],clean:[],hist:[],sec:'painel'};
+const $=x=>document.getElementById(x),esc=v=>String(v??'').replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#039;'}[c]));
+const now=()=>new Date().toISOString().slice(0,7),parts=v=>{let[a,m]=v.split('-').map(Number);return{a,m}},admin=()=>S.perfil?.perfil==='administrador';
+async function q(t){let r=await sb.from(t).select('*');if(r.error)throw r.error;return r.data||[]}
+function go(id){S.sec=id;document.querySelectorAll('.section').forEach(x=>x.classList.remove('active'));$(id).classList.add('active');nav();if(id==='programacao')carregarProgramacao();if(id==='assistencia')carregarAssistencia();if(id==='discursos')carregarTalks();if(id==='grupos')carregarGroups();if(id==='limpeza')carregarClean();if(id==='historico')carregarHistory()}
+function nav(){let a=[['painel','Início'],['programacao','Designações'],['assistencia','Assistência'],['discursos','Discursos'],['grupos','Grupos'],['limpeza','Limpeza'],['historico','Histórico'],['conta','Conta']];$('nav').innerHTML=a.map(x=>`<button class="${S.sec===x[0]?'active':''}" onclick="go('${x[0]}')">${x[1]}</button>`).join('')}
+async function boot(){let r=await sb.from('perfis_usuarios').select('*').eq('user_id',S.user.id).maybeSingle();if(r.error)throw r.error;S.perfil=r.data;S.pessoas=await q('priv_pessoas');S.funcoes=await q('priv_funcoes');S.programacoes=await q('priv_programacoes');S.designacoes=await q('priv_designacoes');S.assist=await q('cv_assistencia_reunioes');S.talks=await q('cv_discursos_publicos');S.groups=await q('cv_grupos');S.clean=await q('cv_limpeza');S.hist=await q('priv_historico_resumos');$('who').textContent=`${S.user.email} · ${S.perfil?.perfil||'sem perfil'}`;$('dashMes').textContent=now();$('dashReun').textContent=S.programacoes.length;$('dashDesig').textContent=S.designacoes.length;$('mesProg').value=now();$('mesAssist').value=now();$('account').innerHTML=`<b>${esc(S.user.email)}</b><p>Perfil: <b>${esc(S.perfil?.perfil||'sem perfil')}</b></p>`;nav();go('painel')}
+$('send').onclick=async()=>{let e=$('email').value.trim();if(!e)return;let r=await sb.auth.signInWithOtp({email:e,options:{shouldCreateUser:true}});if(r.error)return $('msg').textContent=r.error.message;$('otp').classList.remove('hidden');$('msg').textContent='Código enviado ao e-mail.'}
+$('verify').onclick=async()=>{let r=await sb.auth.verifyOtp({email:$('email').value.trim(),token:$('code').value.trim(),type:'email'});if(r.error)return $('msg').textContent=r.error.message;S.user=r.data.user;$('login').classList.add('hidden');$('app').classList.remove('hidden');boot().catch(e=>alert(e.message))}
+$('logout').onclick=async()=>{await sb.auth.signOut();location.reload()}
+async function carregarProgramacao(){let v=$('mesProg').value||now(),{a,m}=parts(v),p=S.programacoes.find(x=>x.ano===a&&x.mes===m);if(!p)return $('board').innerHTML='<div class="card muted">Nenhuma programação cadastrada para este mês.</div>';let ds=S.designacoes.filter(x=>x.programacao_id===p.id).sort((x,y)=>String(x.data).localeCompare(String(y.data))),people=Object.fromEntries(S.pessoas.map(x=>[x.id,x.nome||x.name])),fun=Object.fromEntries(S.funcoes.map(x=>[x.id,x.nome])),map={};ds.forEach(x=>(map[x.data]??=[]).push(x));$('board').innerHTML=Object.keys(map).sort().map(d=>`<div class="day"><h3>${new Date(d+'T12:00:00').toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'2-digit',year:'numeric'})}</h3>${map[d].map(x=>`<div class="assign"><div><b>${esc(fun[x.funcao_id]||'Função')}</b></div><div>${esc(people[x.pessoa_id]||'—')}</div></div>`).join('')}</div>`).join('')}
+async function carregarAssistencia(){let v=$('mesAssist').value||now(),{a,m}=parts(v);S.assist=await q('cv_assistencia_reunioes');let r=S.assist.filter(x=>x.ano===a&&x.mes===m).sort((x,y)=>x.ordem-y.ordem);if(!r.length)return $('assistTable').innerHTML='<div class="muted">Nenhum mês preparado.</div>';let edit=admin(),rows=[['meio_semana_presencial','Meio da semana presencial','w'],['meio_semana_video','Meio da semana videoconferência','w'],['fim_semana_presencial','Fim de semana presencial','e'],['fim_semana_video','Fim de semana videoconferência','e']];$('assistTable').innerHTML=`<table><thead><tr><th class="label">Assistência</th>${r.map(x=>`<th>${new Date(x.data_reuniao+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})}</th>`).join('')}</tr></thead><tbody>${rows.map(z=>`<tr><td class="label">${z[1]}</td>${r.map(x=>{let na=(z[2]==='w'&&x.tipo_reuniao!=='meio_semana')||(z[2]==='e'&&x.tipo_reuniao!=='fim_semana');return `<td class="${na?'na':'edit'}">${na?'—':edit?`<input value="${x[z[0]]??0}" inputmode="numeric" onchange="salvarAssist('${x.id}','${z[0]}',this.value)">`:x[z[0]]??0}</td>`}).join('')}</tr>`).join('')}</tbody></table>`}
+async function prepararAssistencia(){if(!admin())return alert('Somente o administrador pode preparar o mês.');let{a,m}=parts($('mesAssist').value||now()),r=await sb.rpc('cv_preparar_assistencia_mes',{p_mes:m,p_ano:a});if(r.error)return alert(r.error.message);carregarAssistencia()}
+async function salvarAssist(id,k,v){let r=await sb.from('cv_assistencia_reunioes').update({[k]:Math.max(0,Number(v)||0)}).eq('id',id);if(r.error)alert(r.error.message)}
+async function carregarTalks(){S.talks=await q('cv_discursos_publicos');$('talks').innerHTML=S.talks.filter(x=>x.ativo!==false).sort((a,b)=>String(a.data).localeCompare(String(b.data))).map(x=>`<tr><td>${esc(x.secao)}</td><td>${esc(x.data)}</td><td>${esc(x.semana)}</td><td>${esc(x.discurso)}</td><td>${esc(x.orador)}</td><td>${esc(x.congregacao)}</td><td>${admin()?`<button class="btn" onclick="delTalk('${x.id}')">Excluir</button>`:''}</td></tr>`).join('')||'<tr><td colspan="7">Nenhum discurso cadastrado.</td></tr>'}
+$('addTalk').onclick=()=>{if(!admin())return alert('Somente o administrador.');modal('Novo discurso',`<div class="grid g2"><input id="fsec" class="input" placeholder="RECEBEREMOS / ENVIAREMOS"><input id="fdata" class="input" type="date"><input id="fsem" class="input" placeholder="Semana"><input id="fdisc" class="input" placeholder="Discurso"><input id="forador" class="input" placeholder="Orador"><input id="fcong" class="input" placeholder="Congregação"></div><button class="btn mt" onclick="saveTalk()">Salvar</button>`)}
+async function saveTalk(){let x={secao:$('fsec').value,data:$('fdata').value,semana:$('fsem').value,discurso:$('fdisc').value,orador:$('forador').value,congregacao:$('fcong').value,ordem:0,ativo:true},r=await sb.from('cv_discursos_publicos').insert(x);if(r.error)return alert(r.error.message);closeModal();carregarTalks()}
+async function delTalk(id){if(!confirm('Excluir?'))return;await sb.from('cv_discursos_publicos').delete().eq('id',id);carregarTalks()}
+async function carregarGroups(){S.groups=await q('cv_grupos');$('groups').innerHTML=S.groups.map(g=>`<div class="card"><h3>Grupo ${esc(g.numero)}</h3><p><b>Nome:</b> ${esc(g.nome||'')}</p><p><b>Ancião:</b> ${esc(g.anciao_responsavel||'')}</p><p><b>Servo:</b> ${esc(g.servo||'')}</p><p class="muted"><b>Ajudantes:</b> ${esc(g.ajudantes||'')}</p><p class="muted"><b>Nomes:</b> ${esc(g.membros||'')}</p></div>`).join('')||'<div class="card muted">Nenhum grupo.</div>'}
+$('addGroup').onclick=()=>{if(!admin())return alert('Somente o administrador.');modal('Novo grupo',`<div class="grid"><input id="gn" class="input" placeholder="Número"><input id="gname" class="input" placeholder="Nome"><input id="ge" class="input" placeholder="Ancião responsável"><input id="gs" class="input" placeholder="Servo"><textarea id="ga" class="input" placeholder="Ajudantes"></textarea><textarea id="gm" class="input" placeholder="Nomes"></textarea></div><button class="btn mt" onclick="saveGroup()">Salvar</button>`)}
+async function saveGroup(){let x={numero:Number($('gn').value),nome:$('gname').value,anciao_responsavel:$('ge').value,servo:$('gs').value,ajudantes:$('ga').value,membros:$('gm').value,ativo:true},r=await sb.from('cv_grupos').insert(x);if(r.error)return alert(r.error.message);closeModal();carregarGroups()}
+async function carregarClean(){S.clean=await q('cv_limpeza');$('clean').innerHTML=S.clean.map(x=>`<tr><td>${esc(x.semana_inicio||'')} a ${esc(x.semana_fim||'')}</td><td>${esc(x.grupo_numero||x.grupo_id||'')}</td><td>${esc(x.anciao_responsavel||'')}</td><td>${esc(x.observacao||'')}</td></tr>`).join('')||'<tr><td colspan="4">Nenhum registro.</td></tr>'}
+async function carregarHistory(){S.hist=await q('priv_historico_resumos');let p=Object.fromEntries(S.pessoas.map(x=>[x.id,x.nome||x.name]));$('history').innerHTML=S.hist.length?`<table><tr><th>Pessoa</th><th>Privilégio</th><th>Total</th></tr>${S.hist.map(x=>`<tr><td>${esc(p[x.pessoa_id]||x.pessoa_id)}</td><td>${esc(x.funcao||x.privilegio||x.funcao_id)}</td><td>${esc(x.total??x.quantidade??0)}</td></tr>`).join('')}</table>`:'<div class="muted">Nenhum resumo histórico.</div>'}
+function modal(t,h){$('mtitle').textContent=t;$('mbody').innerHTML=h;$('modal').classList.remove('hidden');$('modal').style.display='grid'}function closeModal(){$('modal').classList.add('hidden');$('modal').style.display='none'}
+(async()=>{let r=await sb.auth.getSession();if(r.data.session){S.user=r.data.session.user;$('login').classList.add('hidden');$('app').classList.remove('hidden');boot().catch(e=>alert(e.message))}})();
+</script>
+</body></html>
