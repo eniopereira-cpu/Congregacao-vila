@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#2563eb" />
+  <meta name="description" content="PVI — Controle de Publicações" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <title>PVI — Controle de Publicações</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root{--b:#2563eb;--bg:#f7f8fb;--card:#fff;--txt:#172033;--mut:#667085;--bd:#e5e7eb;--ok:#15803d;--warn:#b45309;--bad:#b91c1c}
+    *{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;background:var(--bg);color:var(--txt)}button,input,select,textarea{font:inherit}button{cursor:pointer}
+    .hidden{display:none!important}.wrap{max-width:1100px;margin:auto;padding:16px}.card{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:16px;box-shadow:0 4px 18px #0000000b}.grid{display:grid;gap:12px}.g2{grid-template-columns:repeat(2,minmax(0,1fr))}.g3{grid-template-columns:repeat(3,minmax(0,1fr))}.g4{grid-template-columns:repeat(4,minmax(0,1fr))}.row{display:flex;gap:10px;align-items:center}.between{justify-content:space-between}.muted{color:var(--mut)}.small{font-size:12px}.big{font-size:28px;font-weight:700}.btn{border:0;border-radius:10px;padding:11px 14px;background:var(--b);color:white;font-weight:600}.btn.sec{background:white;color:var(--txt);border:1px solid var(--bd)}.btn.bad{background:var(--bad)}.btn:disabled{opacity:.5}.input{width:100%;padding:11px;border:1px solid var(--bd);border-radius:10px;background:white}.pill{display:inline-block;padding:4px 8px;border-radius:999px;background:#eef4ff;color:#1d4ed8;font-size:12px;font-weight:600}.ok{color:var(--ok)}.warn{color:var(--warn)}.bad{color:var(--bad)}
+    header{position:sticky;top:0;z-index:5;background:#ffffffed;border-bottom:1px solid var(--bd);backdrop-filter:blur(8px)}header .wrap{display:flex;align-items:center;gap:12px}.logo{width:42px;height:42px;border-radius:12px;background:var(--b);color:white;display:grid;place-items:center;font-weight:800}.nav{display:flex;gap:6px;flex-wrap:wrap}.nav button{border:0;background:transparent;padding:9px 10px;border-radius:9px}.nav button.active{background:#eaf1ff;color:#1d4ed8;font-weight:700}.section{display:none}.section.active{display:block}.list{display:grid;gap:9px}.item{background:white;border:1px solid var(--bd);border-radius:12px;padding:12px}.item strong{display:block}.qty{width:90px;text-align:center;font-weight:700}.login{min-height:100vh;display:grid;place-items:center;padding:18px}.login .card{width:min(420px,100%)}.title{margin:0 0 4px}.mt{margin-top:14px}.mb{margin-bottom:14px}.toolbar{display:flex;gap:8px;flex-wrap:wrap}.modal{position:fixed;inset:0;background:#0007;display:grid;place-items:center;padding:16px;z-index:20}.modal .card{width:min(560px,100%);max-height:90vh;overflow:auto}.toast{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:40;background:#111827;color:white;padding:10px 14px;border-radius:10px;box-shadow:0 8px 30px #0004}.bottom{display:none}
+    @media(max-width:760px){.wrap{padding:12px}.g4,.g3,.g2{grid-template-columns:1fr 1fr}.nav{display:none}header .wrap{justify-content:space-between}.bottom{display:grid;grid-template-columns:repeat(4,1fr);position:fixed;bottom:0;left:0;right:0;background:white;border-top:1px solid var(--bd);z-index:6}.bottom button{border:0;background:white;padding:10px 4px;font-size:11px}.main{padding-bottom:80px}.hide-mobile{display:none}.qty{width:78px}.item .row{align-items:flex-start}}
+  </style>
+</head>
+<body>
+<div id="toast" class="toast hidden"></div>
+<div id="login" class="login">
+  <div class="card">
+    <div class="row mb"><div class="logo">PVI</div><div><h2 class="title">Controle de Publicações</h2><div class="muted small">Acesso seguro por código enviado ao e-mail</div></div></div>
+    <label class="small muted">E-mail</label><input id="loginEmail" class="input mt" type="email" inputmode="email" autocomplete="email" placeholder="seu.email@exemplo.com" />
+    <button id="loginBtn" class="btn mt" style="width:100%">Receber código de acesso</button>
+    <div id="otpArea" class="hidden mt">
+      <label class="small muted">Código de 8 dígitos</label>
+      <input id="loginCode" class="input mt" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="00000000" />
+      <button id="verifyCodeBtn" class="btn mt" style="width:100%">Entrar com o código</button>
+      <button id="changeEmailBtn" class="btn sec mt" style="width:100%">Usar outro e-mail</button>
+    </div>
+    <div id="loginMsg" class="small muted mt"></div>
+  </div>
+</div>
+
+<div id="app" class="hidden">
+<header><div class="wrap"><div class="row"><div class="logo">PVI</div><div><strong>Controle de Publicações</strong><div id="who" class="small muted"></div></div></div><div class="nav" id="nav"></div><button id="logout" class="btn sec">Sair</button></div></header>
+<main class="wrap main">
+  <section id="painel" class="section active"><h2>Painel</h2><div id="cards" class="grid g4"></div><div class="card mt"><div class="between row"><div><strong>Saídas estimadas do mês</strong><div class="small muted">Estoque anterior + entradas − estoque contado</div></div><div id="saidasMes" class="big">0</div></div></div></section>
+  <section id="publicacoes" class="section"><div class="between row"><h2>Publicações</h2><button class="btn op" data-action="novaPublicacao">Nova</button></div><input id="buscaPub" class="input mb" placeholder="Buscar por código, nome ou ano"/><div id="listaPub" class="list"></div></section>
+  <section id="entradas" class="section"><div class="between row"><h2>Entradas</h2><button class="btn op" data-action="novaEntrada">Nova entrada</button></div><div class="grid g2 mb"><input id="mesEntrada" class="input" type="month"><select id="filtroPubEntrada" class="input"><option value="">Todas as publicações</option></select></div><div id="listaEntradas" class="list"></div></section>
+  <section id="inventario" class="section"><div class="between row"><h2>Inventário mensal</h2><button class="btn op" data-action="novoInventario">Novo inventário</button></div><select id="selInventario" class="input mb"></select><div id="invInfo" class="card mb"></div><div id="listaInv" class="list"></div><div id="invActions" class="toolbar mt"><button class="btn sec op" data-action="salvarInventario">Salvar rascunho</button><button class="btn op" data-action="fecharInventario">Fechar inventário</button></div></section>
+  <section id="historico" class="section"><h2>Histórico mensal</h2><div class="grid g2 mb"><input id="mesHistorico" class="input" type="month"><select id="filtroPubHist" class="input"><option value="">Todas as publicações</option></select></div><div id="histResumo" class="grid g3 mb"></div><div id="listaHist" class="list"></div></section>
+  <section id="pedidos" class="section"><div class="between row"><h2>Pedidos</h2><button class="btn op" data-action="novoPedido">Novo pedido</button></div><select id="filtroStatusPedido" class="input mb"><option value="">Todos os status</option><option>pendente</option><option>separado</option><option>entregue</option><option>cancelado</option></select><div id="listaPedidos" class="list"></div></section>
+  <section id="pessoas" class="section"><div class="between row"><h2>Pessoas</h2><button class="btn op" data-action="novaPessoa">Nova</button></div><input id="buscaPessoa" class="input mb" placeholder="Buscar pessoa"/><div id="listaPessoas" class="list"></div></section>
+  <section id="usuarios" class="section"><div class="between row"><h2>Usuários</h2><button class="btn" data-action="convidarUsuario">Cadastrar usuário</button></div><div id="listaUsuarios" class="list"></div></section>
+  <section id="conta" class="section"><h2>Minha conta</h2><div id="contaInfo" class="card"></div></section>
+</main>
+<nav class="bottom"><button data-go="painel">Painel</button><button data-go="publicacoes">Publicações</button><button data-go="entradas">Entradas</button><button data-go="inventario">Inventário</button></nav>
+</div>
+<div id="modal" class="modal hidden"><div class="card"><div class="between row"><h3 id="modalTitle" class="title"></h3><button id="modalClose" class="btn sec">Fechar</button></div><div id="modalBody" class="mt"></div></div></div>
+<script>
+const SUPABASE_URL='https://somxvqwpqhnxjxavhwvb.supabase.co';
+const SUPABASE_KEY='sb_publishable_c1qfUYeooWwsvcHF0_7Rfw_PwKk2PSp';
+const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,flowType:'pkce'}});
+const S={user:null,perfil:null,pubs:[],pessoas:[],entradas:[],inventarios:[],invItens:[],historico:[],pedidos:[],pedidoItens:[],usuarios:[],sec:'painel'};
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+function toast(m){const e=$('#toast');e.textContent=m;e.classList.remove('hidden');setTimeout(()=>e.classList.add('hidden'),2600)}
+function esc(v){return String(v??'').replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#039;'}[c]))}
+function fmt(d){if(!d)return'—';const x=new Date(d+'T12:00:00');return x.toLocaleDateString('pt-BR')}
+function compAtual(){return new Date().toISOString().slice(0,7)}
+function isAdmin(){return S.perfil?.perfil==='administrador'} function canEdit(){return ['administrador','colaborador'].includes(S.perfil?.perfil)}
+function modal(t,html){$('#modalTitle').textContent=t;$('#modalBody').innerHTML=html;$('#modal').classList.remove('hidden')} $('#modalClose').onclick=()=>$('#modal').classList.add('hidden');
+async function q(table){const {data,error}=await sb.from(table).select('*');if(error)throw error;return data||[]}
+async function loadPerfil(){const {data,error}=await sb.from('perfis_usuarios').select('*').eq('user_id',S.user.id).maybeSingle();if(error)throw error;S.perfil=data||null}
+async function loadAll(){[S.pubs,S.pessoas,S.entradas,S.inventarios,S.historico,S.pedidos]=await Promise.all([q('publicacoes'),q('pessoas'),q('entradas'),q('inventarios'),q('historico_mensal'),q('pedidos')]);if(isAdmin())S.usuarios=await q('perfis_usuarios');renderAll()}
+function nav(){const items=[['painel','Painel'],['publicacoes','Publicações'],['entradas','Entradas'],['inventario','Inventário'],['historico','Histórico'],['pedidos','Pedidos'],['pessoas','Pessoas'],['conta','Minha conta']];if(isAdmin())items.splice(7,0,['usuarios','Usuários']);$('#nav').innerHTML=items.map(([id,n])=>`<button data-go="${id}" class="${S.sec===id?'active':''}">${n}</button>`).join('');$$('[data-go]').forEach(b=>b.onclick=()=>go(b.dataset.go));}
+function go(id){S.sec=id;$$('.section').forEach(x=>x.classList.remove('active'));$('#'+id).classList.add('active');nav();window.scrollTo({top:0,behavior:'smooth'})}
+function renderAll(){nav();$('#who').textContent=`${S.user.email} · ${S.perfil?.perfil||'sem perfil'}`;$$('.op').forEach(b=>b.classList.toggle('hidden',!canEdit()));renderPainel();renderPubs();renderEntradas();renderInv();renderHist();renderPedidos();renderPessoas();if(isAdmin())renderUsuarios();renderConta()}
+function card(t,v,d=''){return `<div class="card"><div class="small muted">${esc(t)}</div><div class="big">${esc(v)}</div><div class="small muted">${esc(d)}</div></div>`}
+function renderPainel(){const c=compAtual(), at=S.pubs.filter(x=>x.ativo).length, en=S.entradas.filter(x=>x.data_entrada?.startsWith(c)), inv=S.inventarios.find(x=>x.competencia?.startsWith(c)), ped=S.pedidos.filter(x=>x.status==='pendente').length, hist=S.historico.filter(x=>x.competencia?.startsWith(c));$('#cards').innerHTML=card('Publicações ativas',at,S.pubs.length+' cadastradas')+card('Entradas no mês',en.reduce((a,b)=>a+b.quantidade,0),en.length+' lançamento(s)')+card('Inventário do mês',inv?(inv.fechado?'Fechado':'Rascunho'):'Pendente',inv?fmt(inv.data_contagem):'Faça a contagem')+card('Pedidos pendentes',ped,S.pedidos.length+' no total');$('#saidasMes').textContent=hist.reduce((a,b)=>a+b.saidas_estimadas,0)}
+function renderPubs(){const t=$('#buscaPub').value.toLowerCase();const L=S.pubs.filter(p=>(`${p.codigo} ${p.name} ${p.ano}`).toLowerCase().includes(t)).sort((a,b)=>a.codigo.localeCompare(b.codigo));$('#listaPub').innerHTML=L.length?L.map(p=>`<div class="item"><div class="between row"><div><span class="pill">${esc(p.codigo)}</span><strong>${esc(p.name)}</strong><div class="small muted">Ano: ${p.ano} · ${p.ativo?'Ativa':'Inativa'}</div></div>${canEdit()?`<button class="btn sec" onclick='editPub(${p.id})'>Editar</button>`:''}</div></div>`).join(''):'<div class="card muted">Nenhuma publicação.</div>'}
+$('#buscaPub').oninput=renderPubs;
+window.editPub=id=>{const p=S.pubs.find(x=>x.id===id);modal('Editar publicação',pubForm(p))};
+function pubForm(p={}){return `<div class="grid"><input id="fCodigo" class="input" placeholder="Código" value="${esc(p.codigo||'')}"><input id="fNome" class="input" placeholder="Nome" value="${esc(p.name||'')}"><input id="fAno" class="input" type="number" placeholder="Ano" value="${esc(p.ano||new Date().getFullYear())}"><select id="fAtivo" class="input"><option value="true" ${p.ativo!==false?'selected':''}>Ativa</option><option value="false" ${p.ativo===false?'selected':''}>Inativa</option></select><button class="btn" onclick="savePub(${p.id||'null'})">Salvar</button></div>`}
+window.savePub=async id=>{const row={codigo:$('#fCodigo').value.trim(),name:$('#fNome').value.trim(),ano:Number($('#fAno').value),ativo:$('#fAtivo').value==='true'};const r=id?await sb.from('publicacoes').update(row).eq('id',id):await sb.from('publicacoes').insert(row);if(r.error)return toast(r.error.message);$('#modal').classList.add('hidden');toast('Publicação salva');S.pubs=await q('publicacoes');renderAll()}
+function renderEntradas(){const mes=$('#mesEntrada').value||compAtual(),pid=$('#filtroPubEntrada').value;$('#mesEntrada').value=mes;fillPubSelect('#filtroPubEntrada',pid);const L=S.entradas.filter(e=>(!mes||e.data_entrada.startsWith(mes))&&(!pid||String(e.publicacao_id)===pid)).sort((a,b)=>b.data_entrada.localeCompare(a.data_entrada));$('#listaEntradas').innerHTML=L.length?L.map(e=>`<div class="item"><div class="between row"><div><strong>${esc(pubNome(e.publicacao_id))}</strong><div class="small muted">${fmt(e.data_entrada)}${e.observacao?' · '+esc(e.observacao):''}</div></div><div class="pill">+${e.quantidade}</div></div></div>`).join(''):'<div class="card muted">Nenhuma entrada.</div>'}
+$('#mesEntrada').onchange=renderEntradas;$('#filtroPubEntrada').onchange=renderEntradas;
+function fillPubSelect(sel,val=''){const e=$(sel);e.innerHTML='<option value="">Todas as publicações</option>'+S.pubs.map(p=>`<option value="${p.id}" ${String(p.id)===String(val)?'selected':''}>${esc(p.codigo+' · '+p.name)}</option>`).join('')}
+function pubNome(id){const p=S.pubs.find(x=>String(x.id)===String(id));return p?`${p.codigo} · ${p.name}`:'Publicação'}
+function renderInv(){const s=$('#selInventario'),cur=s.value;S.inventarios.sort((a,b)=>b.competencia.localeCompare(a.competencia));s.innerHTML=S.inventarios.map(i=>`<option value="${i.id}" ${String(i.id)===cur?'selected':''}>${i.competencia.slice(0,7)} — ${i.fechado?'Fechado':'Rascunho'}</option>`).join('');if(!s.value&&S.inventarios[0])s.value=S.inventarios[0].id;loadInvItens()}
+$('#selInventario').onchange=loadInvItens;
+async function loadInvItens(){const id=Number($('#selInventario').value);if(!id){$('#invInfo').innerHTML='Nenhum inventário';$('#listaInv').innerHTML='';return}const inv=S.inventarios.find(x=>x.id===id);$('#invInfo').innerHTML=`<strong>${inv.competencia.slice(0,7)}</strong><div class="small muted">Contagem: ${fmt(inv.data_contagem)} · ${inv.fechado?'Fechado':'Rascunho'}</div>`;S.invItens=await sb.from('inventario_itens').select('*').eq('inventario_id',id).then(r=>r.data||[]);const m=new Map(S.invItens.map(x=>[String(x.publicacao_id),x.quantidade_contada]));$('#listaInv').innerHTML=S.pubs.filter(p=>p.ativo).map(p=>`<div class="item"><div class="between row"><div><strong>${esc(p.codigo+' · '+p.name)}</strong></div><input class="input qty invqty" data-pid="${p.id}" type="number" min="0" value="${m.has(String(p.id))?m.get(String(p.id)):''}" ${inv.fechado||!canEdit()?'disabled':''}></div></div>`).join('');$('#invActions').classList.toggle('hidden',inv.fechado||!canEdit())}
+async function saveInv(close=false){const invId=Number($('#selInventario').value),rows=$$('.invqty').filter(x=>x.value!=='').map(x=>({inventario_id:invId,publicacao_id:Number(x.dataset.pid),quantidade_contada:Number(x.value)}));let r=await sb.from('inventario_itens').delete().eq('inventario_id',invId);if(r.error)return toast(r.error.message);if(rows.length){r=await sb.from('inventario_itens').insert(rows);if(r.error)return toast(r.error.message)}if(close){r=await sb.from('inventarios').update({fechado:true}).eq('id',invId);if(r.error)return toast(r.error.message)}toast(close?'Inventário fechado':'Rascunho salvo');S.inventarios=await q('inventarios');S.historico=await q('historico_mensal');renderAll()}
+function renderHist(){const mes=$('#mesHistorico').value,pid=$('#filtroPubHist').value;fillPubSelect('#filtroPubHist',pid);const L=S.historico.filter(h=>(!mes||h.competencia.startsWith(mes))&&(!pid||String(h.publicacao_id)===pid));$('#histResumo').innerHTML=card('Saídas estimadas',L.reduce((a,b)=>a+b.saidas_estimadas,0))+card('Entradas',L.reduce((a,b)=>a+b.entradas_periodo,0))+card('Estoque contado',L.reduce((a,b)=>a+b.estoque_contado,0));$('#listaHist').innerHTML=L.length?L.map(h=>`<div class="item"><div class="between row"><div><strong>${esc(h.codigo+' · '+h.publicacao)}</strong><div class="small muted">${h.competencia.slice(0,7)} · anterior ${h.estoque_anterior} · entradas ${h.entradas_periodo} · contado ${h.estoque_contado}</div></div><div class="pill">Saídas ${h.saidas_estimadas}</div></div></div>`).join(''):'<div class="card muted">Sem histórico.</div>'}
+$('#mesHistorico').onchange=renderHist;$('#filtroPubHist').onchange=renderHist;
+function renderPedidos(){const st=$('#filtroStatusPedido').value,L=S.pedidos.filter(p=>!st||p.status===st).sort((a,b)=>b.data_pedido.localeCompare(a.data_pedido));$('#listaPedidos').innerHTML=L.length?L.map(p=>`<div class="item"><div class="between row"><div><strong>${esc(p.pessoa_nome||pessoaNome(p.pessoa_id)||'Sem nome')}</strong><div class="small muted">${fmt(p.data_pedido)} · ${esc(p.observacao||'')}</div></div><select class="input" style="width:130px" onchange="updatePedido(${p.id},this.value)" ${canEdit()?'':'disabled'}>${['pendente','separado','entregue','cancelado'].map(x=>`<option ${p.status===x?'selected':''}>${x}</option>`).join('')}</select></div></div>`).join(''):'<div class="card muted">Nenhum pedido.</div>'}
+$('#filtroStatusPedido').onchange=renderPedidos;function pessoaNome(id){return S.pessoas.find(x=>String(x.id)===String(id))?.nome||''}window.updatePedido=async(id,status)=>{const r=await sb.from('pedidos').update({status}).eq('id',id);if(r.error)return toast(r.error.message);S.pedidos=await q('pedidos');renderPedidos();renderPainel()}
+function renderPessoas(){const t=$('#buscaPessoa').value.toLowerCase(),L=S.pessoas.filter(p=>(`${p.nome} ${p.email||''} ${p.telefone||''}`).toLowerCase().includes(t));$('#listaPessoas').innerHTML=L.length?L.map(p=>`<div class="item"><div class="between row"><div><strong>${esc(p.nome)}</strong><div class="small muted">${esc([p.email,p.telefone].filter(Boolean).join(' · ')||'Sem contato')} · ${p.ativo?'Ativa':'Inativa'}</div></div>${canEdit()?`<button class="btn sec" onclick='editPessoa(${p.id})'>Editar</button>`:''}</div></div>`).join(''):'<div class="card muted">Nenhuma pessoa.</div>'}
+$('#buscaPessoa').oninput=renderPessoas;window.editPessoa=id=>{const p=S.pessoas.find(x=>x.id===id);modal('Editar pessoa',pessoaForm(p))};function pessoaForm(p={}){return `<div class="grid"><input id="pNome" class="input" placeholder="Nome" value="${esc(p.nome||'')}"><input id="pEmail" class="input" placeholder="E-mail" value="${esc(p.email||'')}"><input id="pTel" class="input" placeholder="Telefone" value="${esc(p.telefone||'')}"><select id="pAtivo" class="input"><option value="true" ${p.ativo!==false?'selected':''}>Ativa</option><option value="false" ${p.ativo===false?'selected':''}>Inativa</option></select><button class="btn" onclick="savePessoa(${p.id||'null'})">Salvar</button></div>`}window.savePessoa=async id=>{const row={nome:$('#pNome').value.trim(),email:$('#pEmail').value.trim()||null,telefone:$('#pTel').value.trim()||null,ativo:$('#pAtivo').value==='true'};const r=id?await sb.from('pessoas').update(row).eq('id',id):await sb.from('pessoas').insert(row);if(r.error)return toast(r.error.message);$('#modal').classList.add('hidden');S.pessoas=await q('pessoas');renderPessoas();toast('Pessoa salva')}
+function renderUsuarios(){if(!isAdmin())return;$('#listaUsuarios').innerHTML=S.usuarios.map(u=>`<div class="item"><div class="between row"><div><strong>${esc(u.nome||u.email||u.user_id)}</strong><div class="small muted">${esc(u.email||'')} · ${u.ativo?'Ativo':'Inativo'}</div></div><div class="toolbar"><select class="input" style="width:145px" onchange="updUser('${u.user_id}','perfil',this.value)">${['administrador','colaborador','visualizador'].map(x=>`<option ${u.perfil===x?'selected':''}>${x}</option>`).join('')}</select><select class="input" style="width:105px" onchange="updUser('${u.user_id}','ativo',this.value==='true')"><option value="true" ${u.ativo?'selected':''}>Ativo</option><option value="false" ${!u.ativo?'selected':''}>Inativo</option></select></div></div></div>`).join('')||'<div class="card muted">Nenhum usuário.</div>'}window.updUser=async(id,k,v)=>{const r=await sb.from('perfis_usuarios').update({[k]:v}).eq('user_id',id);if(r.error)return toast(r.error.message);S.usuarios=await q('perfis_usuarios');renderUsuarios();toast('Usuário atualizado')}
+function renderConta(){$('#contaInfo').innerHTML=`<strong>${esc(S.perfil?.nome||S.user.email)}</strong><div class="mt small muted">E-mail: ${esc(S.user.email)}</div><div class="small muted">Perfil: ${esc(S.perfil?.perfil||'—')}</div><div class="small muted">Status: ${S.perfil?.ativo?'Ativo':'Inativo'}</div>`}
+$$('[data-action]').forEach(b=>b.onclick=()=>action(b.dataset.action));
+function action(a){if(a==='novaPublicacao')modal('Nova publicação',pubForm());if(a==='novaPessoa')modal('Nova pessoa',pessoaForm());if(a==='novaEntrada')modal('Nova entrada',`<div class="grid"><select id="ePub" class="input"><option value="">Publicação</option>${S.pubs.filter(p=>p.ativo).map(p=>`<option value="${p.id}">${esc(p.codigo+' · '+p.name)}</option>`)}</select><input id="eQtd" class="input" type="number" min="1" placeholder="Quantidade"><input id="eData" class="input" type="date" value="${new Date().toISOString().slice(0,10)}"><textarea id="eObs" class="input" placeholder="Observação"></textarea><button class="btn" onclick="saveEntrada()">Registrar</button></div>`);if(a==='novoInventario')modal('Novo inventário',`<div class="grid"><input id="iComp" class="input" type="month" value="${compAtual()}"><input id="iData" class="input" type="date" value="${new Date().toISOString().slice(0,10)}"><button class="btn" onclick="createInv()">Criar</button></div>`);if(a==='salvarInventario')saveInv(false);if(a==='fecharInventario')saveInv(true);if(a==='novoPedido')pedidoModal();if(a==='convidarUsuario')modal('Cadastrar usuário',`<div class="grid"><input id="uNome" class="input" placeholder="Nome"><input id="uEmail" class="input" type="email" placeholder="E-mail"><select id="uPerfil" class="input"><option>visualizador</option><option>colaborador</option><option>administrador</option></select><div class="small muted">Depois do cadastro, a pessoa acessa o PVI usando o próprio e-mail e um código de 8 dígitos.</div><button class="btn" onclick="inviteUser()">Cadastrar usuário</button></div>`)}
+window.saveEntrada=async()=>{const row={publicacao_id:Number($('#ePub').value),quantidade:Number($('#eQtd').value),data_entrada:$('#eData').value,observacao:$('#eObs').value.trim()||null};const r=await sb.from('entradas').insert(row);if(r.error)return toast(r.error.message);$('#modal').classList.add('hidden');S.entradas=await q('entradas');renderAll();toast('Entrada registrada')};window.createInv=async()=>{const row={competencia:$('#iComp').value+'-01',data_contagem:$('#iData').value,fechado:false};const r=await sb.from('inventarios').insert(row);if(r.error)return toast(r.error.message);$('#modal').classList.add('hidden');S.inventarios=await q('inventarios');renderInv();toast('Inventário criado')}
+function pedidoModal(){modal('Novo pedido',`<div class="grid"><select id="pdPessoa" class="input"><option value="">Nome avulso</option>${S.pessoas.filter(p=>p.ativo).map(p=>`<option value="${p.id}">${esc(p.nome)}</option>`)}</select><input id="pdNome" class="input" placeholder="Nome avulso"><input id="pdData" class="input" type="date" value="${new Date().toISOString().slice(0,10)}"><textarea id="pdObs" class="input" placeholder="Observação"></textarea><div id="pdItens" class="grid"></div><button class="btn sec" onclick="addPedidoItem()">Adicionar item</button><button class="btn" onclick="savePedido()">Salvar pedido</button></div>`);addPedidoItem()}
+window.addPedidoItem=()=>{$('#pdItens').insertAdjacentHTML('beforeend',`<div class="grid g2"><select class="input pdiPub">${S.pubs.filter(p=>p.ativo).map(p=>`<option value="${p.id}">${esc(p.codigo+' · '+p.name)}</option>`)}</select><input class="input pdiQtd" type="number" min="1" value="1"></div>`)};window.savePedido=async()=>{const pedido={pessoa_id:$('#pdPessoa').value?Number($('#pdPessoa').value):null,pessoa_nome:$('#pdPessoa').value?null:($('#pdNome').value.trim()||null),data_pedido:$('#pdData').value,status:'pendente',observacao:$('#pdObs').value.trim()||null};let r=await sb.from('pedidos').insert(pedido).select('*').single();if(r.error)return toast(r.error.message);const itens=$$('.pdiPub').map((x,i)=>({pedido_id:r.data.id,publicacao_id:Number(x.value),quantidade:Number($$('.pdiQtd')[i].value)}));if(itens.length){r=await sb.from('pedido_itens').insert(itens);if(r.error)return toast(r.error.message)}$('#modal').classList.add('hidden');S.pedidos=await q('pedidos');renderAll();toast('Pedido salvo')}
+window.inviteUser=async()=>{const {data,error}=await sb.functions.invoke('convidar-usuario',{body:{nome:$('#uNome').value.trim(),email:$('#uEmail').value.trim(),perfil:$('#uPerfil').value}});if(error)return toast(error.message);if(data?.error)return toast(data.error);$('#modal').classList.add('hidden');toast(data?.mensagem||'Usuário cadastrado');S.usuarios=await q('perfis_usuarios');renderUsuarios()}
+let otpCooldownTimer=null;
+function authMessage(error){
+  const m=String(error?.message||error||'');
+  if(/rate limit|security purposes|429/i.test(m))return 'Muitas solicitações em pouco tempo. Aguarde alguns minutos antes de pedir outro código.';
+  if(/expired|invalid|token/i.test(m))return 'Código inválido ou expirado. Confira o e-mail mais recente e tente novamente.';
+  if(/signups not allowed|user not found|does not exist/i.test(m))return 'Este e-mail ainda não está cadastrado no PVI. Peça ao administrador para liberar o acesso.';
+  return m||'Não foi possível concluir o acesso.';
+}
+function beginOtpCooldown(seconds=60){
+  clearInterval(otpCooldownTimer);
+  let left=seconds;
+  const btn=$('#loginBtn');
+  btn.disabled=true;
+  btn.textContent=`Aguarde ${left}s para reenviar`;
+  otpCooldownTimer=setInterval(()=>{
+    left-=1;
+    if(left<=0){
+      clearInterval(otpCooldownTimer);
+      btn.disabled=false;
+      btn.textContent='Reenviar código';
+    }else btn.textContent=`Aguarde ${left}s para reenviar`;
+  },1000);
+}
+$('#loginBtn').onclick=async()=>{
+  const email=$('#loginEmail').value.trim().toLowerCase();
+  if(!email){$('#loginMsg').textContent='Informe seu e-mail.';return}
+  $('#loginMsg').textContent='Enviando código...';
+  $('#loginBtn').disabled=true;
+  const {error}=await sb.auth.signInWithOtp({email,options:{shouldCreateUser:false}});
+  if(error){
+    $('#loginBtn').disabled=false;
+    $('#loginBtn').textContent='Receber código de acesso';
+    $('#loginMsg').textContent=authMessage(error);
+    return;
+  }
+  $('#loginEmail').readOnly=true;
+  $('#otpArea').classList.remove('hidden');
+  $('#loginMsg').textContent='Código enviado. Abra o e-mail mais recente e digite os 8 números abaixo.';
+  $('#loginCode').focus();
+  beginOtpCooldown(60);
+};
+$('#verifyCodeBtn').onclick=async()=>{
+  const email=$('#loginEmail').value.trim().toLowerCase();
+  const token=$('#loginCode').value.replace(/\D/g,'').slice(0,8);
+  if(token.length!==8){$('#loginMsg').textContent='Digite os 8 números do código recebido por e-mail.';return}
+  $('#verifyCodeBtn').disabled=true;
+  $('#loginMsg').textContent='Verificando código...';
+  const {error}=await sb.auth.verifyOtp({email,token,type:'email'});
+  $('#verifyCodeBtn').disabled=false;
+  if(error){$('#loginMsg').textContent=authMessage(error);return}
+  $('#loginMsg').textContent='Acesso confirmado. Abrindo o PVI...';
+  await start();
+};
+$('#loginCode').addEventListener('input',e=>{e.target.value=e.target.value.replace(/\D/g,'').slice(0,8)});
+$('#loginCode').addEventListener('keydown',e=>{if(e.key==='Enter')$('#verifyCodeBtn').click()});
+$('#loginEmail').addEventListener('keydown',e=>{if(e.key==='Enter')$('#loginBtn').click()});
+$('#changeEmailBtn').onclick=()=>{
+  clearInterval(otpCooldownTimer);
+  $('#loginEmail').readOnly=false;
+  $('#loginEmail').value='';
+  $('#loginCode').value='';
+  $('#otpArea').classList.add('hidden');
+  $('#loginBtn').disabled=false;
+  $('#loginBtn').textContent='Receber código de acesso';
+  $('#loginMsg').textContent='';
+  $('#loginEmail').focus();
+};
+$('#logout').onclick=async()=>{await sb.auth.signOut();location.reload()};
+async function start(){const {data:{session}}=await sb.auth.getSession();if(!session)return;S.user=session.user;try{await loadPerfil()}catch(e){return $('#loginMsg').textContent=e.message}if(!S.perfil||!S.perfil.ativo){$('#loginMsg').textContent='Seu acesso ainda não está ativo.';return}$('#login').classList.add('hidden');$('#app').classList.remove('hidden');await loadAll()}
+sb.auth.onAuthStateChange((ev,s)=>{if(ev==='SIGNED_IN'&&s)start()});start();
+if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
+</script>
+</body></html>
